@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Last Light</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🏮</text></svg>" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="scene"></canvas>
+
+      <div id="vignette"></div>
+      <div id="fadeLayer"></div>
+
+      <div id="loading">
+        <div class="loading-inner">
+          <div class="lamp"></div>
+          <div class="loading-text">lighting the lantern…</div>
+        </div>
+      </div>
+
+      <div id="titleCard" class="hidden">
+        <h1>THE LAST LIGHT</h1>
+        <p class="tagline">Some lights are meant to be carried.</p>
+      </div>
+
+      <div id="storyText" class="hidden"><span></span></div>
+
+      <div id="startPanel" class="hidden">
+        <button id="startBtn">BEGIN</button>
+        <div class="controls-hint">
+          <span><b>WASD</b> move</span><span><b>Shift</b> run</span><span><b>Mouse</b> look</span>
+          <span><b>E</b> interact</span><span><b>F</b> lantern</span><span><b>Esc</b> pause</span>
+        </div>
+      </div>
+
+      <div id="prompt" class="hidden"><span class="key"></span><span class="label"></span></div>
+      <div id="objective" class="hidden"></div>
+      <div id="subtitle" class="hidden"></div>
+      <div id="reticle" class="hidden"></div>
+
+      <div id="pause" class="hidden">
+        <h2>THE LAST LIGHT</h2>
+        <button id="resumeBtn">Resume</button>
+        <button id="restartBtn">Restart</button>
+        <div class="pause-hint">Mouse look is locked while paused.</div>
+      </div>
+
+      <div id="endCard" class="hidden">
+        <h1>THE LAST LIGHT</h1>
+        <p class="line1">Some lights are meant to be carried.</p>
+        <p class="line2">Thank you for taking the walk.</p>
+        <button id="againBtn">Play Again</button>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
