@@ -63,6 +63,7 @@ export class World {
   surf!: THREE.Mesh;
   grassMats: THREE.Material[] = [];
   houseRoof = new THREE.Group();
+  houseWindows!: THREE.MeshStandardMaterial;
   houseInteriorLight!: THREE.PointLight;
   clockHands!: { h: THREE.Mesh; m: THREE.Mesh };
   beamPivot = new THREE.Group();
@@ -346,6 +347,7 @@ export class World {
 
     const winMat = windowMaterial('#ffb45e');
     this.zones[0].windows.push(winMat);
+    this.houseWindows = winMat;
 
     const wall = (w: number, h: number, d: number, x: number, y: number, z: number) => {
       const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
@@ -587,6 +589,12 @@ export class World {
     this.townProps.add(tree); this.sway.push(tree);
     const fl = makeFlowers(this.rng); fl.position.set(O.x + 7.2, 0, O.z + 3); this.townProps.add(fl);
     const mb = makeMailbox(); mb.position.set(O.x + 8.0, 0, O.z - 3.4); this.townProps.add(mb);
+  }
+
+  private teaseLevel = 0;
+  /** One window, in one house, for a second and a half. */
+  teaseWindow(level: number) {
+    this.teaseLevel = level;
   }
 
   /** The rain stops, and the street dries. */
@@ -1091,6 +1099,7 @@ export class World {
   private addLightStation(pos: THREE.Vector3, index: number) {
     const g = new THREE.Group();
     g.position.copy(pos);
+    g.scale.setScalar(0.85);
     this.root.add(g);
     g.add(new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.25, 1.0), MAT.stone()).translateY(0.12));
     const body = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.46, 1.5, 8), MAT.metal(0x3b4048));
@@ -1200,6 +1209,9 @@ export class World {
       z.power += (z.target - z.power) * Math.min(1, dt * 1.1);
       for (const l of z.lamps) l.power = z.power;
       for (const w of z.windows) w.emissiveIntensity = z.power * 1.5 * this.glowBoost;
+    }
+    if (this.teaseLevel > 0) {
+      this.houseWindows.emissiveIntensity = Math.max(this.houseWindows.emissiveIntensity, this.teaseLevel);
     }
 
     // stations

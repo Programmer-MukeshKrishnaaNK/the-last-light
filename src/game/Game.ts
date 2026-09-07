@@ -131,15 +131,20 @@ export class Game {
     this.audio.setMusic(0.35, 8);
   }
 
+  private dragging = false;
+
   private requestLock() {
     const c = this.renderer.domElement;
-    if (document.pointerLockElement !== c) c.requestPointerLock?.();
+    if (document.pointerLockElement === c) return;
+    // some embeddings refuse pointer lock; the drag fallback below covers those
+    Promise.resolve(c.requestPointerLock?.()).catch(() => {});
   }
 
   private setPaused(on: boolean) {
     if (on && this.state === 'play') {
       this.state = 'paused';
       this.ui.showPause(true);
+      this.dragging = false;
       document.exitPointerLock?.();
       this.audio.setMusic(0.05, 0.4);
     } else if (!on && this.state === 'paused') {
@@ -172,9 +177,12 @@ export class Game {
     canvas.addEventListener('click', () => {
       if (this.state === 'play') this.requestLock();
     });
+    canvas.addEventListener('mousedown', () => { this.dragging = true; });
+    window.addEventListener('mouseup', () => { this.dragging = false; });
     document.addEventListener('mousemove', (e) => {
-      if (document.pointerLockElement !== canvas) return;
       if (this.state !== 'play') return;
+      const locked = document.pointerLockElement === canvas;
+      if (!locked && !this.dragging) return;
       this.cam.look(e.movementX, e.movementY);
     });
     document.addEventListener('pointerlockchange', () => {
@@ -238,12 +246,12 @@ export class Game {
     this.ui.setPrompt('F', 'lantern');
 
     await this.wait(1.8);
-    // a window comes on somewhere up the street… and then thinks better of it
-    this.world.zones[0].target = 0.5;
+    // a window comes on up the street… and then thinks better of it
+    this.world.teaseWindow(4.0);
     this.audio.interact();
-    await this.wait(1.7);
-    this.world.zones[0].target = 0;
-    await this.wait(2.0);
+    await this.wait(2.1);
+    for (let i = 14; i >= 0; i--) { this.world.teaseWindow((i / 14) * 4.0); await this.wait(0.05); }
+    await this.wait(1.6);
     this.ui.setObjective('the house up the street', 7);
   }
 
