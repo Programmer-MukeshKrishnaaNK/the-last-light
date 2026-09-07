@@ -51,9 +51,9 @@ export class Lantern {
     this.light = new THREE.PointLight(0xffb162, 0, 17, 2.0);
     this.light.position.y = 0.21;
     this.light.castShadow = true;
-    this.light.shadow.mapSize.set(1024, 1024);
+    this.light.shadow.mapSize.set(512, 512);
     this.light.shadow.camera.near = 0.15;
-    this.light.shadow.camera.far = 18;
+    this.light.shadow.camera.far = 13;
     this.light.shadow.bias = -0.004;
     g.add(this.light);
 
@@ -78,7 +78,7 @@ export class Lantern {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     this.motes = new THREE.Points(geo, new THREE.PointsMaterial({
-      color: 0xffd7a0, size: 0.045, transparent: true, opacity: 0,
+      map: glowTexture(), color: 0xffd7a0, size: 0.09, transparent: true, opacity: 0,
       blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true,
     }));
     this.motes.frustumCulled = false;

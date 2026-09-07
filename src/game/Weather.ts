@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { glowTexture, rainTexture } from './textures';
+import { glowTexture } from './textures';
 import { damp, lerp } from './util';
 
 /** Rain box that follows the player, plus drifting fog motes and distant lightning. */
@@ -67,7 +67,7 @@ export class Weather {
     const mgeo = new THREE.BufferGeometry();
     mgeo.setAttribute('position', new THREE.BufferAttribute(mpos, 3));
     this.motes = new THREE.Points(mgeo, new THREE.PointsMaterial({
-      map: rainTexture(), color: 0x9fb8d0, size: 0.5, transparent: true, opacity: 0.09,
+      map: glowTexture(), color: 0x9fb8d0, size: 0.7, transparent: true, opacity: 0.09,
       depthWrite: false, blending: THREE.AdditiveBlending,
     }));
     this.motes.frustumCulled = false;

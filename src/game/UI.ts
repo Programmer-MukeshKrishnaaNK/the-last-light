@@ -82,7 +82,7 @@ export class UI {
 
   showEnd() {
     this.endCard.classList.remove('hidden');
-    requestAnimationFrame(() => this.endCard.classList.add('show'));
+    setTimeout(() => this.endCard.classList.add('show'), 30);
     setTimeout(() => this.endCard.classList.add('reveal1'), 2600);
     setTimeout(() => this.endCard.classList.add('reveal2'), 5600);
     setTimeout(() => this.endCard.classList.add('reveal3'), 8000);

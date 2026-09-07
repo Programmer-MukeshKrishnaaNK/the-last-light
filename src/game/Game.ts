@@ -51,7 +51,7 @@ export class Game {
   private childFigure?: THREE.Group;
   private childT = 0;
 
-  flags = { lantern: false, mem1: false, s1: false, mem2: false, s2: false, s3: false, placed: false };
+  flags = { lantern: false, mem1: false, s1: false, mem2: false, s2: false, s3: false, read: false, placed: false };
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
@@ -304,7 +304,7 @@ export class Game {
 
   private setupInteractions() {
     this.interact.add({
-      id: 'lantern', pos: P.lantern.clone().setY(0.4), radius: 2.4,
+      id: 'lantern', pos: P.lantern.clone().setY(0.3), radius: 2.8,
       key: 'E', label: 'take the lantern', once: true,
       highlight: this.lanternBeacon,
       onUse: () => void this.pickUpLantern(),
@@ -325,14 +325,14 @@ export class Game {
     });
 
     this.interact.add({
-      id: 'mem1', pos: P.table.clone(), radius: 3.0,
+      id: 'mem1', pos: P.table.clone(), radius: 3.4,
       key: 'E', label: 'raise the lantern', once: true,
       enabled: () => this.lantern.held && this.lantern.on,
       onUse: () => void this.playMemory1(),
     });
 
     this.interact.add({
-      id: 'station1', pos: P.station1.clone().setY(1.6), radius: 2.6,
+      id: 'station1', pos: P.station1.clone().setY(1.1), radius: 3.4,
       key: 'E', label: 'restore the light', once: true,
       enabled: () => this.flags.mem1,
       highlight: this.stationHalo(0),
@@ -340,14 +340,14 @@ export class Game {
     });
 
     this.interact.add({
-      id: 'mem2', pos: P.memory2.clone(), radius: 3.4,
+      id: 'mem2', pos: P.memory2.clone(), radius: 4.2,
       key: 'E', label: 'raise the lantern', once: true,
       enabled: () => this.flags.s1 && this.lantern.held && this.lantern.on,
       onUse: () => void this.playMemory2(),
     });
 
     this.interact.add({
-      id: 'station2', pos: P.station2.clone().setY(1.6), radius: 2.6,
+      id: 'station2', pos: P.station2.clone().setY(2.0), radius: 3.4,
       key: 'E', label: 'restore the light', once: true,
       enabled: () => this.flags.mem2,
       highlight: this.stationHalo(1),
@@ -355,7 +355,7 @@ export class Game {
     });
 
     this.interact.add({
-      id: 'station3', pos: P.station3.clone().setY(1.6), radius: 2.8,
+      id: 'station3', pos: P.station3.clone().setY(1.1), radius: 3.4,
       key: 'E', label: 'restore the light', once: true,
       enabled: () => this.flags.s2,
       highlight: this.stationHalo(2),
@@ -376,10 +376,11 @@ export class Game {
     this.interact.add({
       id: 'inscription',
       pos: new THREE.Vector3(P.lighthouse.x + 2.4, P.lampRoom.y + 0.6, P.lighthouse.z + 1.1),
-      radius: 2.6, key: 'E', label: 'read the inscription', once: true,
+      radius: 3.0, key: 'E', label: 'read the inscription', once: true,
       enabled: () => this.flags.s3,
       highlight: halo,
       onUse: () => {
+        this.flags.read = true;
         this.audio.interact();
         this.ui.say('"For whoever comes next."', 7);
         this.wait(3.5).then(() => this.ui.setObjective('the mechanism', 8));
@@ -389,8 +390,8 @@ export class Game {
     this.interact.add({
       id: 'mechanism',
       pos: new THREE.Vector3(P.lighthouse.x, P.lampRoom.y + 0.9, P.lighthouse.z),
-      radius: 3.6, key: 'E', label: 'place the lantern', once: true,
-      enabled: () => this.flags.s3 && this.lantern.held,
+      radius: 2.9, key: 'E', label: 'place the lantern', once: true,
+      enabled: () => this.flags.read && this.lantern.held,
       onUse: () => void this.finale(),
     });
   }
@@ -408,7 +409,7 @@ export class Game {
   private addNote(id: string, pos: THREE.Vector3, line: string, decorate?: () => void) {
     decorate?.();
     this.interact.add({
-      id, pos, radius: 2.1, key: 'E', label: 'look', once: true,
+      id, pos, radius: 2.6, key: 'E', label: 'look', once: true,
       onUse: () => { this.audio.interact(); this.ui.say(line, 6); },
     });
   }
@@ -758,7 +759,7 @@ export class Game {
     glow.scale.set(1.5, 1.5, 1); glow.position.copy(flame.position); g.add(glow);
 
     g.userData.limbs = [armL, armR, legL, legR];
-    g.position.set(-6.2, 0.16, 88);
+    g.position.set(-6.2, 0.16, 84);
     this.scene.add(g);
     this.childFigure = g;
     this.childT = 0;
@@ -833,6 +834,14 @@ export class Game {
     this.world.setInsideHouse(inside, dt);
 
     this.cam.update(dt, this.player.pos, this.player.speed, this.world.blockers);
+
+    // keep the moon's shadow box over the player so it stays crisp and cheap
+    const md = this.sky.moonDir;
+    this.sky.moon.position.set(
+      this.player.pos.x + md.x * 90, this.player.pos.y + md.y * 90, this.player.pos.z + md.z * 90,
+    );
+    this.sky.moon.target.position.copy(this.player.pos);
+    this.sky.moon.target.updateMatrixWorld();
 
     this.world.update(t, dt);
     this.lantern.update(dt, t, 1);
@@ -913,8 +922,7 @@ export class Game {
     if (this.childFigure) {
       this.childT += dt;
       const c = this.childFigure;
-      const speed = 1.35;
-      c.position.z = 88 - this.childT * speed * 6;
+      c.position.z = 84 - this.childT * 2.0;
       const dz = c.position.z - this.player.pos.z;
       // look at the player as they pass, then walk on
       const looking = Math.abs(dz) < 6;
@@ -922,10 +930,10 @@ export class Game {
         ? THREE.MathUtils.lerp(c.rotation.y, Math.atan2(this.player.pos.x - c.position.x, this.player.pos.z - c.position.z), damp(dt, 3))
         : THREE.MathUtils.lerp(c.rotation.y, Math.PI, damp(dt, 2));
       const limbs = c.userData.limbs as THREE.Mesh[];
-      const s = Math.sin(t * 7.2);
+      const s = Math.sin(t * 5.4);
       limbs[0].rotation.x = s * 0.4; limbs[1].rotation.x = -s * 0.15;
       limbs[2].rotation.x = -s * 0.6; limbs[3].rotation.x = s * 0.6;
-      if (c.position.z < 30) { c.removeFromParent(); this.childFigure = undefined; }
+      if (c.position.z < 42) { c.removeFromParent(); this.childFigure = undefined; }
     }
   }
 

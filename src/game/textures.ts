@@ -22,19 +22,6 @@ export function glowTexture(): THREE.Texture {
   return glowTex;
 }
 
-let dropTex: THREE.Texture | null = null;
-export function rainTexture(): THREE.Texture {
-  if (dropTex) return dropTex;
-  const { c, x } = canvas(32);
-  const g = x.createLinearGradient(0, 0, 0, 32);
-  g.addColorStop(0, 'rgba(255,255,255,0)');
-  g.addColorStop(0.5, 'rgba(255,255,255,0.85)');
-  g.addColorStop(1, 'rgba(255,255,255,0)');
-  x.fillStyle = g; x.fillRect(12, 0, 8, 32);
-  dropTex = new THREE.CanvasTexture(c);
-  return dropTex;
-}
-
 const windowCache = new Map<string, THREE.Texture>();
 /** Warm interior seen through a mullioned window. */
 export function windowTexture(tint: string, cols = 2, rows = 2): THREE.Texture {

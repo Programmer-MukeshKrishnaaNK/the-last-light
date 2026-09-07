@@ -85,6 +85,7 @@ export function applyEnvironment(renderer: THREE.WebGLRenderer, scene: THREE.Sce
 }
 
 export interface SkyHandles {
+  moonDir: THREE.Vector3;
   moon: THREE.DirectionalLight;
   ambient: THREE.HemisphereLight;
   fill: THREE.DirectionalLight;
@@ -142,9 +143,10 @@ export function buildSky(scene: THREE.Scene): SkyHandles {
   moon.position.copy(moonDir).multiplyScalar(120);
   moon.castShadow = true;
   moon.shadow.mapSize.set(2048, 2048);
+  // the shadow box follows the player, so it only ever renders nearby geometry
   moon.shadow.camera.near = 1;
-  moon.shadow.camera.far = 260;
-  const s = 70;
+  moon.shadow.camera.far = 200;
+  const s = 42;
   moon.shadow.camera.left = -s; moon.shadow.camera.right = s;
   moon.shadow.camera.top = s; moon.shadow.camera.bottom = -s;
   moon.shadow.bias = -0.0009;
@@ -172,8 +174,8 @@ export function buildSky(scene: THREE.Scene): SkyHandles {
       uniforms.top.value.setHex(0x4d6f9e);
       uniforms.mid.value.setHex(0x9db3c8);
       uniforms.bot.value.setHex(0xe6c39a);
-      moon.color.setHex(0xfff0d8); moon.intensity = 2.2;
-      moon.position.set(60, 40, 120);
+      moon.color.setHex(0xfff0d8); moon.intensity = 2.4;
+      moonDir.set(0.42, 0.52, 0.74).normalize();
       ambient.color.setHex(0x9fb8d4); ambient.groundColor.setHex(0x6b6350); ambient.intensity = 1.5;
       fill.color.setHex(0xffd9a8); fill.intensity = 0.9;
       (stars.material as THREE.PointsMaterial).opacity = 0;
@@ -184,7 +186,7 @@ export function buildSky(scene: THREE.Scene): SkyHandles {
       uniforms.mid.value.setHex(0x1b2c49);
       uniforms.bot.value.setHex(0x3b5473);
       moon.color.setHex(0xa8c6f5); moon.intensity = 1.5;
-      moon.position.copy(moonDir).multiplyScalar(120);
+      moonDir.set(-0.3, 0.24, -1).normalize();
       ambient.color.setHex(0x3a5580); ambient.groundColor.setHex(0x14181f); ambient.intensity = 0.8;
       fill.color.setHex(0x3c5c8c); fill.intensity = 0.7;
       (stars.material as THREE.PointsMaterial).opacity = 0.55;
@@ -193,5 +195,5 @@ export function buildSky(scene: THREE.Scene): SkyHandles {
     }
   };
   setMood('night');
-  return { moon, ambient, fill, sky, moonDisc, stars, setMood };
+  return { moonDir, moon, ambient, fill, sky, moonDisc, stars, setMood };
 }
