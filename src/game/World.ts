@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Box, Rng, boxFrom, std } from './util';
+import { Box, Rng, boxFrom, mergeMeshes, std } from './util';
 import { glowTexture, sandTexture, stoneTexture, woodTexture } from './textures';
 import {
   LampSpec, MAT, makeBench, makeBicycle, makeBin, makeBush, makeCrate, makeFence,
@@ -98,6 +98,14 @@ export class World {
     this.root.traverse((o) => {
       if ((o as THREE.Sprite).isSprite || (o as THREE.Points).isPoints) o.raycast = noHit;
     });
+    // small props don't earn their place in the shadow pass
+    this.root.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh || !m.castShadow || !m.geometry) return;
+      if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere();
+      const r = m.geometry.boundingSphere!.radius * Math.max(m.scale.x, m.scale.y, m.scale.z);
+      if (r < 0.75) m.castShadow = false;
+    });
   }
 
   // ---------------------------------------------------------------- terrain
@@ -160,25 +168,30 @@ export class World {
     }
     // centre dashes
     const dashMat = new THREE.MeshStandardMaterial({ color: 0x4e4a3c, roughness: 0.8 });
+    const dashes: THREE.Mesh[] = [];
     for (let z = 70; z > -28; z -= 6) {
       const d = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 2.2), dashMat);
       d.rotation.x = -Math.PI / 2; d.position.set(0, 0.02, z);
-      this.root.add(d);
+      dashes.push(d);
     }
+    this.root.add(mergeMeshes(dashes, dashMat));
 
     // puddles — wet, specular, they catch every light
     const puddleMat = new THREE.MeshStandardMaterial({
       color: 0x232c38, roughness: 0.07, metalness: 0.22,
     });
+    const puddleParts: THREE.Mesh[] = [];
     for (let i = 0; i < 26; i++) {
       const s = this.rng.range(0.9, 2.2);
       const p = new THREE.Mesh(new THREE.CircleGeometry(s, 12), puddleMat);
       p.rotation.x = -Math.PI / 2;
       p.scale.y = this.rng.range(0.5, 1);
       p.position.set(this.rng.range(-4.4, 4.4), 0.026, this.rng.range(-52, 74));
-      this.root.add(p);
-      this.puddles.push(p);
+      puddleParts.push(p);
     }
+    const puddleMesh = mergeMeshes(puddleParts, puddleMat);
+    this.root.add(puddleMesh);
+    this.puddles.push(puddleMesh);
 
     // streetlights down the road
     const lampZ = [64, 52, 40, 28, 16, 4, -8, -20];
@@ -406,8 +419,13 @@ export class World {
     for (const z of [-2.2, 2.2]) {
       g.add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 3.0, 0.2), trim).translateX(W / 2 + 2.4).translateY(1.6).translateZ(z));
     }
-    const canopy = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.24, 5.4), roofMat);
-    canopy.position.set(W / 2 + 1.4, 3.2, 0); g.add(canopy);
+    const canopyShape = new THREE.Shape();
+    canopyShape.moveTo(-1.7, 0); canopyShape.lineTo(1.7, 0); canopyShape.lineTo(0, 0.85); canopyShape.closePath();
+    const canopyGeo = new THREE.ExtrudeGeometry(canopyShape, { depth: 5.4, bevelEnabled: false });
+    canopyGeo.rotateY(Math.PI / 2);
+    canopyGeo.translate(0, 0, 2.7);
+    const canopy = new THREE.Mesh(canopyGeo, roofMat);
+    canopy.position.set(W / 2 + 1.4, 3.1, 0); canopy.castShadow = true; g.add(canopy);
 
     // ---- interior dressing
     const rug = new THREE.Mesh(new THREE.PlaneGeometry(5.4, 4.2), std(0x4a2f2c, 0.98));
@@ -441,14 +459,16 @@ export class World {
     // bookshelf
     const shelf = new THREE.Group();
     shelf.add(new THREE.Mesh(new THREE.BoxGeometry(1.9, 2.4, 0.4), MAT.wood()).translateY(1.2));
+    const bookMat = std(0x5a4a44, 0.92);
+    const books: THREE.Mesh[] = [];
     for (let i = 0; i < 3; i++) {
       for (let b = 0; b < 9; b++) {
-        const bk = new THREE.Mesh(new THREE.BoxGeometry(0.11, this.rng.range(0.26, 0.38), 0.26),
-          std(this.rng.pick([0x6b3a30, 0x35485c, 0x5a5330, 0x3d3a4a]), 0.9));
+        const bk = new THREE.Mesh(new THREE.BoxGeometry(0.11, this.rng.range(0.26, 0.38), 0.26), bookMat);
         bk.position.set(-0.78 + b * 0.18, 0.5 + i * 0.72 + 0.16, 0.06);
-        shelf.add(bk);
+        books.push(bk);
       }
     }
+    shelf.add(mergeMeshes(books, bookMat));
     shelf.position.set(-5.0, 0, 3.6); shelf.rotation.y = Math.PI / 2;
     g.add(shelf);
     this.boxes.push(boxFrom(O.x - 5.0, O.z + 3.6, 0.9, 2.1));
@@ -518,6 +538,37 @@ export class World {
       const sh = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.12, 0.34), std(0x2b241d, 0.95));
       sh.position.set(W / 2 - 1.0, 0.13, dz); g.add(sh);
     }
+    // hallway: coat hooks, a side table, a broken umbrella
+    const hookRail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 1.5), trim);
+    hookRail.position.set(W / 2 - 0.5, 2.1, 3.6); g.add(hookRail);
+    for (let i = 0; i < 3; i++) {
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.16, 0.06), MAT.metal(0x6a5c3e))
+        .translateX(W / 2 - 0.62).translateY(2.02).translateZ(3.1 + i * 0.5));
+    }
+    const coat = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.0, 0.42), std(0x3d4b5c, 0.95));
+    coat.position.set(W / 2 - 0.66, 1.45, 3.35); g.add(coat);
+    const sideTop = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.09, 1.1), MAT.wood());
+    sideTop.position.set(W / 2 - 0.6, 0.85, 1.2); g.add(sideTop);
+    for (const [sx, sz] of [[-0.18, -0.45], [0.18, -0.45], [-0.18, 0.45], [0.18, 0.45]] as [number, number][]) {
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.82, 0.06), MAT.wood())
+        .translateX(W / 2 - 0.6 + sx).translateY(0.41).translateZ(1.2 + sz));
+    }
+    const keys = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.02, 0.14), MAT.metal(0x8a7448));
+    keys.position.set(W / 2 - 0.6, 0.91, 1.0); g.add(keys);
+    const brolly = new THREE.Group();
+    brolly.add(new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 1.0, 6), MAT.metal(0x3a3f46)));
+    const brollyTop = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.34, 7), std(0x2c3540, 0.9));
+    brollyTop.position.y = 0.55; brolly.add(brollyTop);
+    brolly.position.set(W / 2 - 0.75, 0.55, 2.2); brolly.rotation.z = 0.22; g.add(brolly);
+    // a standing lamp in the corner of the living room
+    g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.24, 0.06, 12), MAT.metal(0x4a4238))
+      .translateX(-4.6).translateY(0.05).translateZ(4.4));
+    g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.5, 6), MAT.metal(0x4a4238))
+      .translateX(-4.6).translateY(0.8).translateZ(4.4));
+    const shadeH = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.38, 0.42, 12, 1, true), winMat);
+    shadeH.position.set(-4.6, 1.72, 4.4);
+    (shadeH.material as THREE.Material).side = THREE.DoubleSide;
+    g.add(shadeH);
 
     this.houseInteriorLight = new THREE.PointLight(0xffb267, 0, 14, 2);
     this.houseInteriorLight.position.set(-1.5, 3.4, 0);
@@ -669,10 +720,12 @@ export class World {
       const r = new THREE.Mesh(new THREE.BoxGeometry(120, 0.16, 0.14), railMat);
       r.position.set(0, 0.36, z); g.add(r);
     }
+    const sleepers: THREE.Mesh[] = [];
     for (let x = -58; x < 58; x += 1.7) {
-      const s = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.14, 3.4), sleeperMat);
-      s.position.set(x, 0.28, -54.5); g.add(s);
+      const sl = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.14, 3.4), sleeperMat);
+      sl.position.set(x, 0.28, -54.5); sleepers.push(sl);
     }
+    g.add(mergeMeshes(sleepers, sleeperMat));
 
     // signal
     const sig = new THREE.Group();
@@ -763,22 +816,25 @@ export class World {
     app.rotation.x = 0.2;
     g.add(app); this.floors.push(app);
 
+    const pierWood = MAT.wood();
+    const pierParts: THREE.Mesh[] = [];
     for (let z = -69; z > -111; z -= 4) {
       for (const x of [-2.1, 2.1]) {
-        const pile = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 4.5, 7), MAT.wood());
-        pile.position.set(x, -0.9, z); pile.castShadow = true;
-        g.add(pile);
+        const pile = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 4.5, 7), pierWood);
+        pile.position.set(x, -0.9, z);
+        pierParts.push(pile);
       }
-      // railing
       for (const x of [-2.35, 2.35]) {
-        g.add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.0, 0.12), MAT.wood()).translateX(x).translateY(1.9).translateZ(z));
+        pierParts.push(new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.0, 0.12), pierWood)
+          .translateX(x).translateY(1.9).translateZ(z) as THREE.Mesh);
       }
     }
     for (const x of [-2.35, 2.35]) {
-      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 44), MAT.wood());
-      rail.position.set(x, 2.36, -90); g.add(rail);
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 44), pierWood);
+      rail.position.set(x, 2.36, -90); pierParts.push(rail);
       this.boxes.push({ minX: x - 0.4, maxX: x + 0.4, minZ: -112, maxZ: -68 });
     }
+    g.add(mergeMeshes(pierParts, pierWood, true));
 
     // pier lamps
     for (const z of [-76, -88, -100]) {
@@ -910,13 +966,15 @@ export class World {
     const col = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.5, LH.h, 14), std(0x4a453d, 0.95));
     col.position.y = 1.2 + LH.h / 2; g.add(col);
     const postMatLh = MAT.metal(0x52585f);
+    const rampPosts: THREE.Mesh[] = [];
     for (let i = 0; i <= 34; i++) {
       const a = (i / 34) * aMax;
       const y = rampY(a);
       const p = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.92, 5), postMatLh);
       p.position.set(Math.sin(a) * (rIn + 0.12), y + 0.46, Math.cos(a) * (rIn + 0.12));
-      g.add(p);
+      rampPosts.push(p);
     }
+    g.add(mergeMeshes(rampPosts, postMatLh));
 
     // small windows up the tower
     const winMat = windowMaterial('#ffce93', 1, 2);
@@ -1243,13 +1301,19 @@ export class World {
       pos.z = r.cz + (dz / dist) * target;
     }
 
-    // keep the player on the island
-    const lx = pos.x - P.lighthouse.x, lz = pos.z - P.lighthouse.z;
-    const ld = Math.hypot(lx, lz);
-    if (ld < 12.4 && ld > 0.1 && pos.z < P.lighthouse.z + 5.4) {
-      // fine, they're on the rock
+    // the sea: past the surf you can only go along the pier, and only onto the rock
+    if (pos.z < -95) {
+      if (pos.z > -111) {
+        pos.x = THREE.MathUtils.clamp(pos.x, -2.4, 2.4);
+      } else {
+        const lx = pos.x - P.lighthouse.x, lz = pos.z - P.lighthouse.z;
+        const ld = Math.hypot(lx, lz) || 1e-5;
+        if (ld > 11.6 && Math.abs(pos.x) > 2.4) {
+          pos.x = P.lighthouse.x + (lx / ld) * 11.6;
+          pos.z = P.lighthouse.z + (lz / ld) * 11.6;
+        }
+      }
     }
-    // world bounds
     pos.x = THREE.MathUtils.clamp(pos.x, -46, 46);
     pos.z = THREE.MathUtils.clamp(pos.z, -134, 78);
   }

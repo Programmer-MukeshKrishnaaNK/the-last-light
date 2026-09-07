@@ -803,6 +803,8 @@ export class Game {
   // ------------------------------------------------------------------- loop
 
   private loop = () => {
+    // never leave more than one frame pending, even if something calls loop() directly
+    cancelAnimationFrame(this.raf);
     this.raf = requestAnimationFrame(this.loop);
     const raw = Math.min(this.clock.getDelta(), 0.05);
     const dt = this.state === 'paused' ? 0 : raw;

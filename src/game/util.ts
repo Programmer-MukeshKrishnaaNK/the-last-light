@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 /** Tiny deterministic RNG so the town looks the same every playthrough. */
 export class Rng {
@@ -47,4 +48,21 @@ export function disposeGroup(g: THREE.Object3D) {
     if (Array.isArray(mat)) mat.forEach((x) => x.dispose());
     else if (mat) mat.dispose();
   });
+}
+
+/**
+ * Bake a pile of static meshes down to one draw call. They must already be
+ * positioned in the parent's space and share a material.
+ */
+export function mergeMeshes(meshes: THREE.Mesh[], material: THREE.Material, cast = false) {
+  const geos = meshes.map((m) => {
+    m.updateMatrix();
+    return m.geometry.clone().applyMatrix4(m.matrix);
+  });
+  const merged = mergeGeometries(geos, false);
+  geos.forEach((g) => g.dispose());
+  const mesh = new THREE.Mesh(merged ?? geos[0], material);
+  mesh.castShadow = cast;
+  mesh.receiveShadow = true;
+  return mesh;
 }

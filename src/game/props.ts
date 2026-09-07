@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Box, Rng, boxFrom, std } from './util';
+import { Box, Rng, boxFrom, mergeMeshes, std } from './util';
 import { glowTexture, groundTexture, stoneTexture, windowTexture, woodTexture } from './textures';
 
 export interface LampSpec {
@@ -189,24 +189,26 @@ export function makeTree(rng: Rng, scale = 1) {
   trunk.position.y = trunkH / 2; trunk.castShadow = true;
   g.add(trunk);
   const leafMat = std(0x30402c, 0.92);
-  const blobs = rng.int(3, 5);
-  for (let i = 0; i < blobs; i++) {
+  const blobs: THREE.Mesh[] = [];
+  const n = rng.int(3, 5);
+  for (let i = 0; i < n; i++) {
     const r = rng.range(1.0, 1.8) * scale;
     const b = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 0), leafMat);
     b.position.set(rng.range(-0.9, 0.9) * scale, trunkH + rng.range(-0.3, 1.3) * scale, rng.range(-0.9, 0.9) * scale);
     b.rotation.set(rng.range(0, 3), rng.range(0, 3), rng.range(0, 3));
-    b.castShadow = true;
-    b.userData.sway = rng.range(0.5, 1.4);
-    b.userData.base = b.position.clone();
-    g.add(b);
+    blobs.push(b);
   }
+  const canopy = mergeMeshes(blobs, leafMat, true);
+  g.add(canopy);
   // branches
+  const branches: THREE.Mesh[] = [];
   for (let i = 0; i < 2; i++) {
     const br = new THREE.Mesh(new THREE.CylinderGeometry(0.06 * scale, 0.12 * scale, 1.6 * scale, 5), barkMat);
     br.position.set(rng.range(-0.4, 0.4) * scale, trunkH * 0.75, rng.range(-0.4, 0.4) * scale);
     br.rotation.z = rng.range(-0.9, 0.9); br.rotation.x = rng.range(-0.9, 0.9);
-    g.add(br);
+    branches.push(br);
   }
+  g.add(mergeMeshes(branches, barkMat));
   g.userData.swayRoot = true;
   return g;
 }
@@ -226,16 +228,18 @@ export function makeBush(rng: Rng) {
 }
 
 export function makeFence(length: number, rng: Rng) {
-  const g = new THREE.Group();
   const mat = std(0x4a3f31, 0.95);
+  const parts: THREE.Mesh[] = [];
   const n = Math.max(2, Math.round(length / 1.1));
   for (let i = 0; i <= n; i++) {
     const p = box(0.11, rng.range(1.0, 1.2), 0.11, mat, -length / 2 + (i * length) / n, 0.55, 0);
     p.rotation.z = rng.range(-0.05, 0.05);
-    g.add(p);
+    parts.push(p);
   }
-  g.add(box(length, 0.09, 0.07, mat, 0, 0.9, 0));
-  g.add(box(length, 0.09, 0.07, mat, 0, 0.5, 0));
+  parts.push(box(length, 0.09, 0.07, mat, 0, 0.9, 0));
+  parts.push(box(length, 0.09, 0.07, mat, 0, 0.5, 0));
+  const g = new THREE.Group();
+  g.add(mergeMeshes(parts, mat));
   return g;
 }
 
