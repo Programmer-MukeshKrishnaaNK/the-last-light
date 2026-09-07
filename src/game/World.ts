@@ -38,10 +38,11 @@ export const P = {
   pierEnd: new THREE.Vector3(0, 1.25, -108),
   lighthouse: new THREE.Vector3(0, 0, -122),
   lighthouseDoor: new THREE.Vector3(0, 0, -117),
-  lampRoom: new THREE.Vector3(0, 22.2, -122),
+  lampRoom: new THREE.Vector3(0, 25.05, -122),
 };
 
-const LH = { r: 4.3, h: 24, rampTop: 21.4 };
+const LH = { r: 4.3, h: 24 };
+const LAMP_Y = 1.2 + LH.h;      // walkable floor level at the top of the tower
 
 export class World {
   root = new THREE.Group();
@@ -55,6 +56,8 @@ export class World {
     { lamps: [], windows: [], power: 0, target: 0 },
   ];
   sway: THREE.Object3D[] = [];
+  /** Lifted during cinematics so the distant town still reads as lit. */
+  glowBoost = 1;
   swingers: THREE.Object3D[] = [];
   ocean!: THREE.Mesh;
   surf!: THREE.Mesh;
@@ -70,7 +73,7 @@ export class World {
   private doorBox!: Box;
   townProps = new THREE.Group();
   blockers: THREE.Object3D[] = [];
-  nightOnly: THREE.Object3D[] = [];
+  puddles: THREE.Mesh[] = [];
   private rng = new Rng(20250907);
   private ray = new THREE.Raycaster();
   private down = new THREE.Vector3(0, -1, 0);
@@ -101,7 +104,7 @@ export class World {
 
   private buildTerrain() {
     const tex = sandTexture();
-    const g = new THREE.PlaneGeometry(300, 300, 60, 60);
+    const g = new THREE.PlaneGeometry(320, 152, 64, 32);
     g.rotateX(-Math.PI / 2);
     const pos = g.attributes.position as THREE.BufferAttribute;
     for (let i = 0; i < pos.count; i++) {
@@ -113,7 +116,7 @@ export class World {
     const dirt = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
       map: t, color: 0x5a5648, roughness: 0.92,
     }));
-    dirt.position.z = -30;
+    dirt.position.z = 8;
     dirt.receiveShadow = true;
     this.root.add(dirt);
 
@@ -174,6 +177,7 @@ export class World {
       p.scale.y = this.rng.range(0.5, 1);
       p.position.set(this.rng.range(-4.4, 4.4), 0.026, this.rng.range(-52, 74));
       this.root.add(p);
+      this.puddles.push(p);
     }
 
     // streetlights down the road
@@ -534,6 +538,12 @@ export class World {
     const mb = makeMailbox(); mb.position.set(O.x + 8.0, 0, O.z - 3.4); this.townProps.add(mb);
   }
 
+  /** The rain stops, and the street dries. */
+  dryOut() {
+    for (const p of this.puddles) p.visible = false;
+    for (const m of [this.surf]) (m.material as THREE.MeshBasicMaterial).opacity = 0.1;
+  }
+
   setClock(h: number, m: number) {
     this.clockHands.h.rotation.z = -((h % 12) + m / 60) * (Math.PI * 2) / 12;
     this.clockHands.h.position.set(Math.sin(-this.clockHands.h.rotation.z) * 0.15, Math.cos(this.clockHands.h.rotation.z) * 0.15, 0.11);
@@ -626,8 +636,16 @@ export class World {
     }
     const stationSign = makeSign('station');
     stationSign.position.set(-11, 0.9, -41); g.add(stationSign);
-    const board = new THREE.Mesh(new THREE.BoxGeometry(3.4, 1.4, 0.14), std(0x1c2026, 0.5));
+    const board = new THREE.Mesh(new THREE.BoxGeometry(3.4, 1.4, 0.14), std(0x2a3037, 0.6));
     board.position.set(9.5, 3.0, -40.4); g.add(board);
+    const boardFace = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 1.05), new THREE.MeshStandardMaterial({
+      color: 0x14181d, emissive: new THREE.Color(0x6fa0c8), emissiveIntensity: 0.5, roughness: 0.4,
+    }));
+    boardFace.position.set(9.5, 3.0, -40.32); g.add(boardFace);
+    for (let i = 0; i < 4; i++) {
+      const row = new THREE.Mesh(new THREE.PlaneGeometry(2.2 - i * 0.2, 0.09), std(0x9aa8b4, 0.7));
+      row.position.set(9.1 - i * 0.06, 3.35 - i * 0.22, -40.3); g.add(row);
+    }
     for (let i = 0; i < 3; i++) {
       const c = makeCrate(this.rng);
       c.position.set(this.rng.range(8, 11), 0.9 + 0.3, this.rng.range(-47, -43));
@@ -690,7 +708,7 @@ export class World {
       pos.setY(i, -1.5 * (1 - k) + Math.sin(pos.getX(i) * 0.3) * 0.06);
     }
     geo.computeVertexNormals();
-    const sand = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: t, color: 0x6d6350, roughness: 0.85 }));
+    const sand = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: t, color: 0x7a6d56, roughness: 0.88 }));
     sand.position.set(0, 0, -75);
     sand.receiveShadow = true;
     g.add(sand);
@@ -821,7 +839,7 @@ export class World {
     }
 
     const stone = new THREE.MeshStandardMaterial({ map: stoneTexture(), roughness: 0.9 });
-    const sm = (stone.map as THREE.Texture).clone(); sm.needsUpdate = true; sm.repeat.set(6, 8);
+    const sm = (stone.map as THREE.Texture).clone(); sm.needsUpdate = true; sm.repeat.set(4, 7);
     stone.map = sm;
     const stoneIn = new THREE.MeshStandardMaterial({ map: sm, roughness: 0.95, side: THREE.BackSide, color: 0x8f8578 });
 
@@ -858,12 +876,16 @@ export class World {
     this.boxes.push(this.doorBox);
 
     // ---- spiral ramp
-    const turns = 2.6, segs = 220, rIn = 1.7, rOut = LH.r - 0.6;
+    const turns = 3.0, segs = 340, rIn = 1.55, rOut = LH.r - 0.55;
+    const rampTop = LAMP_Y - 0.15;
+    const aRise = 0.82 * turns * Math.PI * 2;          // climbing ends here
+    const aMax = turns * Math.PI * 2 + 3.42;           // then a full flat landing ring
+    const rampY = (a: number) => 1.35 + Math.min(1, a / aRise) * (rampTop - 1.35);
     const vs: number[] = [], ns: number[] = [], uvs: number[] = [], idx: number[] = [];
     for (let i = 0; i <= segs; i++) {
       const t = i / segs;
-      const a = t * turns * Math.PI * 2;
-      const y = 1.35 + t * (LH.rampTop - 1.35);
+      const a = t * aMax;
+      const y = rampY(a);
       vs.push(Math.sin(a) * rIn, y, Math.cos(a) * rIn);
       vs.push(Math.sin(a) * rOut, y, Math.cos(a) * rOut);
       ns.push(0, 1, 0, 0, 1, 0);
@@ -887,12 +909,12 @@ export class World {
     // central column + railing posts
     const col = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.5, LH.h, 14), std(0x4a453d, 0.95));
     col.position.y = 1.2 + LH.h / 2; g.add(col);
-    for (let i = 0; i <= 30; i++) {
-      const t = i / 30;
-      const a = t * turns * Math.PI * 2;
-      const y = 1.35 + t * (LH.rampTop - 1.35);
-      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.95, 5), MAT.metal(0x3a3f46));
-      p.position.set(Math.sin(a) * (rIn + 0.14), y + 0.47, Math.cos(a) * (rIn + 0.14));
+    const postMatLh = MAT.metal(0x52585f);
+    for (let i = 0; i <= 34; i++) {
+      const a = (i / 34) * aMax;
+      const y = rampY(a);
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.92, 5), postMatLh);
+      p.position.set(Math.sin(a) * (rIn + 0.12), y + 0.46, Math.cos(a) * (rIn + 0.12));
       g.add(p);
     }
 
@@ -909,29 +931,34 @@ export class World {
     }
 
     // ---- lamp room
-    const gallery = new THREE.Mesh(new THREE.CylinderGeometry(4.6, 4.6, 0.35, 24), MAT.metal(0x35393f));
-    gallery.position.y = 1.2 + LH.h; g.add(gallery);
-    this.floors.push(gallery);
-    const floorTop = new THREE.Mesh(new THREE.CylinderGeometry(3.3, 3.3, 0.2, 24), MAT.metal(0x3c4046));
-    floorTop.position.y = 1.2 + LH.h + 0.2; g.add(floorTop);
-    this.floors.push(floorTop);
-    for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2;
+    const gallery = new THREE.Mesh(new THREE.RingGeometry(LH.r - 0.75, 5.0, 32), MAT.metal(0x35393f));
+    gallery.rotation.x = -Math.PI / 2;
+    gallery.position.y = LAMP_Y - 0.16; (gallery.material as THREE.Material).side = THREE.DoubleSide;
+    g.add(gallery);
+    const galleryLip = new THREE.Mesh(new THREE.CylinderGeometry(5.0, 5.0, 0.3, 32, 1, true), MAT.metal(0x2f3339));
+    galleryLip.position.y = LAMP_Y - 0.3; (galleryLip.material as THREE.Material).side = THREE.DoubleSide;
+    g.add(galleryLip);
+    // cap over the central column, level with the landing
+    const colCap = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 0.22, 20), MAT.metal(0x3c4046));
+    colCap.position.y = LAMP_Y - 0.26; g.add(colCap);
+    this.floors.push(colCap);
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
       g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.1, 5), MAT.metal(0x3a3f46))
-        .translateX(Math.sin(a) * 4.4).translateY(1.2 + LH.h + 0.55).translateZ(Math.cos(a) * 4.4));
+        .translateX(Math.sin(a) * 4.85).translateY(LAMP_Y + 0.4).translateZ(Math.cos(a) * 4.85));
     }
     const glassRing = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.2, 3.4, 16, 1, true), new THREE.MeshStandardMaterial({
       color: 0x8fb6d8, transparent: true, opacity: 0.14, roughness: 0.05, metalness: 0.5, side: THREE.DoubleSide,
     }));
-    glassRing.position.y = 1.2 + LH.h + 2.0; g.add(glassRing);
+    glassRing.position.y = LAMP_Y + 1.9; g.add(glassRing);
     for (let i = 0; i < 8; i++) {
       const a = (i / 8) * Math.PI * 2;
       g.add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 3.4, 0.12), MAT.metal(0x2e3239))
-        .translateX(Math.sin(a) * 3.2).translateY(1.2 + LH.h + 2.0).translateZ(Math.cos(a) * 3.2));
+        .translateX(Math.sin(a) * 3.2).translateY(LAMP_Y + 1.9).translateZ(Math.cos(a) * 3.2));
     }
     const capRoof = new THREE.Mesh(new THREE.ConeGeometry(3.8, 2.2, 16), MAT.metal(0x2c3037));
-    capRoof.position.y = 1.2 + LH.h + 4.6; g.add(capRoof);
-    g.add(new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), MAT.metal(0x6a5d3c)).translateY(1.2 + LH.h + 5.9));
+    capRoof.position.y = LAMP_Y + 4.4; g.add(capRoof);
+    g.add(new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), MAT.metal(0x6a5d3c)).translateY(LAMP_Y + 5.7));
 
     // the mechanism the player repairs
     const mech = new THREE.Group();
@@ -948,26 +975,28 @@ export class World {
     });
     const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.75, 1.5, 14), lensMat);
     lens.position.y = 1.5; mech.add(lens);
-    mech.position.set(0, 1.2 + LH.h + 0.3, 0);
+    mech.position.set(0, LAMP_Y - 0.15, 0);
     g.add(mech);
     this.lampGlow = new THREE.Sprite(new THREE.SpriteMaterial({
       map: glowTexture(), color: 0xffcf94, transparent: true, opacity: 0,
       blending: THREE.AdditiveBlending, depthWrite: false,
     }));
     this.lampGlow.scale.set(26, 26, 1);
-    this.lampGlow.position.set(0, 1.2 + LH.h + 1.8, 0);
+    this.lampGlow.position.set(0, LAMP_Y + 1.35, 0);
     g.add(this.lampGlow);
     (mech.userData as { lens: THREE.MeshStandardMaterial }).lens = lensMat;
     this.lensMat = lensMat;
 
     // the old lantern waiting at the top, with its inscription plate
-    const plinth = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.75, 0.7), MAT.stone());
-    plinth.position.set(1.9, 1.2 + LH.h + 0.6, 0.9); g.add(plinth);
+    const plinth = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.72, 0.62), std(0x4b4d52, 0.9));
+    plinth.position.set(2.4, LAMP_Y + 0.22, 1.1); plinth.castShadow = true; g.add(plinth);
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.16), std(0x8d7c52, 0.45, 0.6));
+    plate.position.set(2.4, LAMP_Y + 0.3, 1.42); g.add(plate);
 
     // the sweeping beam
-    this.beamPivot.position.set(0, 1.2 + LH.h + 1.8, 0);
+    this.beamPivot.position.set(0, LAMP_Y + 1.35, 0);
     g.add(this.beamPivot);
-    const beamGeo = new THREE.ConeGeometry(9, 190, 24, 1, true);
+    const beamGeo = new THREE.ConeGeometry(11, 190, 24, 1, true);
     beamGeo.translate(0, -95, 0);
     beamGeo.rotateX(Math.PI / 2);
     this.beamCone = new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({
@@ -975,7 +1004,7 @@ export class World {
       depthWrite: false, side: THREE.DoubleSide,
     }));
     this.beamPivot.add(this.beamCone);
-    this.beamLight = new THREE.SpotLight(0xffcf9a, 0, 260, 0.16, 0.55, 1.1);
+    this.beamLight = new THREE.SpotLight(0xffcf9a, 0, 320, 0.095, 0.65, 0.0);
     this.beamLight.position.set(0, 0, 0);
     this.beamLight.target.position.set(0, -6, -100);
     this.beamPivot.add(this.beamLight);
@@ -983,7 +1012,7 @@ export class World {
 
     // top-of-tower warm light
     this.topLight = new THREE.PointLight(0xffbb77, 0, 20, 2);
-    this.topLight.position.set(0, 1.2 + LH.h + 1.0, 0);
+    this.topLight.position.set(0, LAMP_Y + 0.9, 0);
     g.add(this.topLight);
   }
 
@@ -999,7 +1028,7 @@ export class World {
 
   // -------------------------------------------------------- light stations
 
-  stations: Array<{ group: THREE.Group; lens: THREE.MeshStandardMaterial; glow: THREE.Sprite; light: THREE.PointLight; on: boolean }> = [];
+  stations: Array<{ group: THREE.Group; lens: THREE.MeshStandardMaterial; glow: THREE.Sprite; light: THREE.PointLight; on: boolean; level: number }> = [];
 
   private addLightStation(pos: THREE.Vector3, index: number) {
     const g = new THREE.Group();
@@ -1035,7 +1064,7 @@ export class World {
     light.position.y = 1.95; g.add(light);
 
     this.boxes.push(boxFrom(pos.x, pos.z, 1.1, 1.1));
-    this.stations[index] = { group: g, lens: lensMat, glow, light, on: false };
+    this.stations[index] = { group: g, lens: lensMat, glow, light, on: false, level: 0 };
   }
 
   activateStation(i: number) {
@@ -1046,10 +1075,10 @@ export class World {
   // ------------------------------------------------------------------ grass
 
   private buildGrass() {
-    const blade = new THREE.PlaneGeometry(0.09, 0.55);
+    const blade = new THREE.PlaneGeometry(0.075, 0.5);
     blade.translate(0, 0.275, 0);
     const mat = new THREE.MeshStandardMaterial({
-      color: 0x2b3a24, roughness: 1, side: THREE.DoubleSide,
+      color: 0x38492c, roughness: 1, side: THREE.DoubleSide,
     });
     const uni = { uTime: { value: 0 } };
     mat.onBeforeCompile = (sh) => {
@@ -1065,7 +1094,7 @@ export class World {
     mat.userData.uni = uni;
     this.grassMats.push(mat);
 
-    const count = 2600;
+    const count = 4200;
     const im = new THREE.InstancedMesh(blade, mat, count);
     const d = new THREE.Object3D();
     let n = 0;
@@ -1112,19 +1141,20 @@ export class World {
     for (const z of this.zones) {
       z.power += (z.target - z.power) * Math.min(1, dt * 1.1);
       for (const l of z.lamps) l.power = z.power;
-      for (const w of z.windows) w.emissiveIntensity = z.power * 1.5;
+      for (const w of z.windows) w.emissiveIntensity = z.power * 1.5 * this.glowBoost;
     }
 
     // stations
     for (const s of this.stations) {
       if (!s) continue;
       const target = s.on ? 1 : 0;
-      const cur = s.lens.emissiveIntensity / 3;
-      const v = cur + (target - cur) * Math.min(1, dt * 1.6);
+      s.level += (target - s.level) * Math.min(1, dt * 1.6);
       const flick = 0.9 + 0.1 * Math.sin(t * 5 + s.group.position.x);
-      s.lens.emissiveIntensity = v * 3 * flick;
-      (s.glow.material as THREE.SpriteMaterial).opacity = v * 0.5;
-      s.light.intensity = v * 7;
+      const v = s.level * flick;
+      s.lens.emissiveIntensity = v * 5;
+      (s.glow.material as THREE.SpriteMaterial).opacity = v * 0.62;
+      s.glow.scale.setScalar(4.6 + v * 1.6);
+      s.light.intensity = v * 11;
     }
 
     // lighthouse door swings open

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { LampSpec } from './props';
+import { moonTexture } from './textures';
 import { damp, lerp } from './util';
 
 /**
@@ -18,14 +19,14 @@ export class LightPool {
     }
   }
 
-  update(lamps: LampSpec[], focus: THREE.Vector3, t: number, dt: number) {
+  update(lamps: LampSpec[], focus: THREE.Vector3, t: number, dt: number, boost = 1) {
     // animate glow/pool/bulb for every lamp (cheap, no light cost)
     for (const l of lamps) {
       const flick = 0.86 + 0.14 * Math.sin(t * 7.3 + l.flicker) * Math.sin(t * 2.1 + l.flicker * 3);
       const v = l.power * flick;
       if (l.bulb) l.bulb.emissiveIntensity = v * 3.4;
-      if (l.glow) (l.glow.material as THREE.SpriteMaterial).opacity = v * 0.55;
-      if (l.pool) (l.pool.material as THREE.MeshBasicMaterial).opacity = v * 0.34;
+      if (l.glow) (l.glow.material as THREE.SpriteMaterial).opacity = Math.min(1, v * 0.55 * boost);
+      if (l.pool) (l.pool.material as THREE.MeshBasicMaterial).opacity = Math.min(1, v * 0.34 * boost);
     }
 
     const active = lamps.filter((l) => l.power > 0.02);
@@ -60,10 +61,10 @@ function envTexture(mood: 'night' | 'dawn') {
   }
   x.fillStyle = g; x.fillRect(0, 0, 256, 128);
   if (mood === 'night') {
-    const m = x.createRadialGradient(70, 34, 0, 70, 34, 26);
+    const m = x.createRadialGradient(70, 48, 0, 70, 48, 24);
     m.addColorStop(0, 'rgba(200,220,255,0.95)');
     m.addColorStop(1, 'rgba(200,220,255,0)');
-    x.fillStyle = m; x.fillRect(44, 8, 52, 52);
+    x.fillStyle = m; x.fillRect(44, 22, 52, 52);
   }
   const t = new THREE.CanvasTexture(c);
   t.mapping = THREE.EquirectangularReflectionMapping;
@@ -136,7 +137,7 @@ export function buildSky(scene: THREE.Scene): SkyHandles {
   stars.frustumCulled = false;
   scene.add(stars);
 
-  const moonDir = new THREE.Vector3(-0.35, 0.42, -1).normalize();
+  const moonDir = new THREE.Vector3(-0.3, 0.24, -1).normalize();
   const moon = new THREE.DirectionalLight(0xa8c6f5, 1.5);
   moon.position.copy(moonDir).multiplyScalar(120);
   moon.castShadow = true;
@@ -159,11 +160,11 @@ export function buildSky(scene: THREE.Scene): SkyHandles {
   scene.add(ambient);
 
   const moonDisc = new THREE.Sprite(new THREE.SpriteMaterial({
-    color: 0xdfe9ff, transparent: true, opacity: 0.9, depthWrite: false,
+    map: moonTexture(), color: 0xdfe9ff, transparent: true, opacity: 0.95, depthWrite: false,
     blending: THREE.AdditiveBlending,
   }));
-  moonDisc.position.copy(moonDir).multiplyScalar(430);
-  moonDisc.scale.set(58, 58, 1);
+  moonDisc.position.copy(moonDir).multiplyScalar(420);
+  moonDisc.scale.set(70, 70, 1);
   scene.add(moonDisc);
 
   const setMood = (mood: 'night' | 'dawn') => {

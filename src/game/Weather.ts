@@ -5,7 +5,7 @@ import { damp, lerp } from './util';
 /** Rain box that follows the player, plus drifting fog motes and distant lightning. */
 export class Weather {
   group = new THREE.Group();
-  private rain: THREE.Points;
+  private rain: THREE.LineSegments;
   private rainVel: Float32Array;
   private motes: THREE.Points;
   private lightning: THREE.DirectionalLight;
@@ -21,20 +21,23 @@ export class Weather {
   constructor(scene: THREE.Scene) {
     scene.add(this.group);
 
-    const n = 3600;
-    const pos = new Float32Array(n * 3);
+    // drops are short line segments, so they read as streaks rather than dots
+    const n = 2600;
+    const pos = new Float32Array(n * 6);
     this.rainVel = new Float32Array(n);
     for (let i = 0; i < n; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * this.area * 2;
-      pos[i * 3 + 1] = Math.random() * this.top;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * this.area * 2;
-      this.rainVel[i] = 22 + Math.random() * 16;
+      const x = (Math.random() - 0.5) * this.area * 2;
+      const y = Math.random() * this.top;
+      const z = (Math.random() - 0.5) * this.area * 2;
+      const len = 0.42 + Math.random() * 0.5;
+      pos.set([x, y, z, x - 0.06, y - len, z], i * 6);
+      this.rainVel[i] = 24 + Math.random() * 18;
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    this.rain = new THREE.Points(geo, new THREE.PointsMaterial({
-      map: rainTexture(), color: 0xa9c4e0, size: 0.5, transparent: true, opacity: 0.4,
-      depthWrite: false, sizeAttenuation: true, blending: THREE.AdditiveBlending,
+    this.rain = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({
+      color: 0x9fbfe0, transparent: true, opacity: 0.32,
+      depthWrite: false, blending: THREE.AdditiveBlending,
     }));
     this.rain.frustumCulled = false;
     this.group.add(this.rain);
@@ -79,8 +82,8 @@ export class Weather {
 
   update(dt: number, t: number, focus: THREE.Vector3, onThunder?: () => void) {
     this.intensity = lerp(this.intensity, this.target, damp(dt, 0.7));
-    const rm = this.rain.material as THREE.PointsMaterial;
-    rm.opacity = 0.4 * this.intensity;
+    const rm = this.rain.material as THREE.LineBasicMaterial;
+    rm.opacity = 0.32 * this.intensity;
     (this.splash.material as THREE.PointsMaterial).opacity = 0.2 * this.intensity;
     (this.motes.material as THREE.PointsMaterial).opacity = 0.09 * Math.max(0.25, this.intensity);
     this.rain.visible = this.intensity > 0.02;
@@ -93,15 +96,19 @@ export class Weather {
       const a = p.array as Float32Array;
       const wind = Math.sin(t * 0.3) * 2.2 + 1.4;
       for (let i = 0; i < this.rainVel.length; i++) {
-        const j = i * 3;
-        a[j + 1] -= this.rainVel[i] * dt;
-        a[j] += wind * dt;
+        const j = i * 6;
+        const dy = this.rainVel[i] * dt;
+        const dx = wind * dt;
+        a[j + 1] -= dy; a[j + 4] -= dy;
+        a[j] += dx; a[j + 3] += dx;
         if (a[j + 1] < -2) {
-          a[j + 1] = this.top;
-          a[j] = (Math.random() - 0.5) * this.area * 2;
-          a[j + 2] = (Math.random() - 0.5) * this.area * 2;
+          const x = (Math.random() - 0.5) * this.area * 2;
+          const z = (Math.random() - 0.5) * this.area * 2;
+          const len = a[j + 1] - a[j + 4];
+          a[j] = x; a[j + 1] = this.top; a[j + 2] = z;
+          a[j + 3] = x - 0.06; a[j + 4] = this.top - len; a[j + 5] = z;
         }
-        if (a[j] > this.area) a[j] -= this.area * 2;
+        if (a[j] > this.area) { a[j] -= this.area * 2; a[j + 3] -= this.area * 2; }
       }
       p.needsUpdate = true;
 

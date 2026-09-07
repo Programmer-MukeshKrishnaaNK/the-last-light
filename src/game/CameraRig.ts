@@ -56,7 +56,7 @@ export class CameraRig {
     this.ray.set(this.lookAt, dir);
     this.ray.far = this.targetDistance + 0.6;
     const hits = this.ray.intersectObjects(obstacles, true);
-    if (hits.length) dist = Math.max(1.35, hits[0].distance - 0.45);
+    if (hits.length) dist = Math.max(2.3, hits[0].distance - 0.45);
     this.distance = lerp(this.distance, dist, damp(dt, dist < this.distance ? 22 : 5));
 
     const want = this.lookAt.clone().addScaledVector(dir, this.distance);

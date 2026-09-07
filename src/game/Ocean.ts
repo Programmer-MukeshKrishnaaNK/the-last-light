@@ -2,10 +2,10 @@ import * as THREE from 'three';
 
 /** Big animated water plane. Waves are done in the vertex shader so it stays cheap. */
 export function makeOcean() {
-  const geo = new THREE.PlaneGeometry(900, 700, 120, 90);
+  const geo = new THREE.PlaneGeometry(900, 700, 160, 120);
   geo.rotateX(-Math.PI / 2);
   const mat = new THREE.MeshStandardMaterial({
-    color: 0x0b1826, roughness: 0.14, metalness: 0.62,
+    color: 0x081320, roughness: 0.09, metalness: 0.88,
   });
   const uniforms = { uTime: { value: 0 } };
   mat.onBeforeCompile = (shader) => {
@@ -14,9 +14,11 @@ export function makeOcean() {
       .replace('#include <common>', `#include <common>
         uniform float uTime;
         float wav(vec2 p){
-          return sin(p.x * 0.11 + uTime * 0.75) * 0.34
-               + sin(p.y * 0.17 - uTime * 0.55) * 0.26
-               + sin((p.x + p.y) * 0.061 + uTime * 0.33) * 0.42;
+          return sin(p.x * 0.11 + uTime * 0.75) * 0.30
+               + sin(p.y * 0.17 - uTime * 0.55) * 0.24
+               + sin((p.x + p.y) * 0.061 + uTime * 0.33) * 0.40
+               + sin(p.x * 0.47 - uTime * 1.4) * 0.09
+               + sin(p.y * 0.61 + uTime * 1.7) * 0.07;
         }`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         transformed.y += wav(transformed.xz);
@@ -42,7 +44,7 @@ export function makeSurf() {
   const geo = new THREE.PlaneGeometry(240, 14, 60, 1);
   geo.rotateX(-Math.PI / 2);
   const mat = new THREE.MeshBasicMaterial({
-    color: 0x9fc0d8, transparent: true, opacity: 0.16,
+    color: 0xa8c8de, transparent: true, opacity: 0.2,
     blending: THREE.AdditiveBlending, depthWrite: false,
   });
   return new THREE.Mesh(geo, mat);

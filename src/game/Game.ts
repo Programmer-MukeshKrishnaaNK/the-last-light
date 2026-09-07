@@ -364,18 +364,19 @@ export class Game {
 
     // the lighthouse pedestal
     const ped = makePedestalLantern();
-    ped.position.set(1.9, P.lampRoom.y + 1.2, 0.9);
-    ped.scale.setScalar(0.9);
+    ped.position.set(2.4, P.lampRoom.y + 0.5, 1.1);
+    ped.scale.setScalar(1.25);
     this.world.lighthouseGroup.add(ped);
     const halo = Lantern.beacon();
-    halo.scale.set(1.6, 1.6, 1);
-    halo.position.copy(ped.position).setY(ped.position.y + 0.22);
+    halo.scale.set(2.2, 2.2, 1);
+    (halo.material as THREE.SpriteMaterial).color.setHex(0xbfd4ea);
+    halo.position.copy(ped.position).setY(ped.position.y + 0.3);
     this.world.lighthouseGroup.add(halo);
 
     this.interact.add({
       id: 'inscription',
-      pos: new THREE.Vector3(P.lighthouse.x + 1.9, P.lampRoom.y + 1.2, P.lighthouse.z + 0.9),
-      radius: 2.2, key: 'E', label: 'read the inscription', once: true,
+      pos: new THREE.Vector3(P.lighthouse.x + 2.4, P.lampRoom.y + 0.6, P.lighthouse.z + 1.1),
+      radius: 2.6, key: 'E', label: 'read the inscription', once: true,
       enabled: () => this.flags.s3,
       highlight: halo,
       onUse: () => {
@@ -387,8 +388,8 @@ export class Game {
 
     this.interact.add({
       id: 'mechanism',
-      pos: new THREE.Vector3(P.lighthouse.x, P.lampRoom.y + 1.4, P.lighthouse.z),
-      radius: 2.6, key: 'E', label: 'place the lantern', once: true,
+      pos: new THREE.Vector3(P.lighthouse.x, P.lampRoom.y + 0.9, P.lighthouse.z),
+      radius: 3.6, key: 'E', label: 'place the lantern', once: true,
       enabled: () => this.flags.s3 && this.lantern.held,
       onUse: () => void this.finale(),
     });
@@ -513,8 +514,8 @@ export class Game {
     this.world.topLight.intensity = 2.2;
     this.world.lensMat.emissiveIntensity = 1.4;
     (this.world.lampGlow.material as THREE.SpriteMaterial).opacity = 0.28;
-    (this.world.beamCone.material as THREE.MeshBasicMaterial).opacity = 0.055;
-    this.world.beamLight.intensity = 2.4;
+    (this.world.beamCone.material as THREE.MeshBasicMaterial).opacity = 0.08;
+    this.world.beamLight.intensity = 3.4;
     this.beamMode = 'toPlayer';
     this.audio.mechanism();
     await this.wait(2.0);
@@ -525,6 +526,7 @@ export class Game {
     this.ui.setObjective('the lighthouse', 9);
   }
 
+  private fogTarget = 0.0095;
   private beamMode: 'off' | 'toPlayer' | 'sweep' = 'off';
   private beamAngle = 0;
 
@@ -539,30 +541,43 @@ export class Game {
     // the lantern goes into the mechanism
     this.lantern.group.removeFromParent();
     this.world.lighthouseGroup.add(this.lantern.group);
-    this.lantern.group.position.set(0, P.lampRoom.y + 1.5, 0);
+    this.lantern.group.position.set(0, P.lampRoom.y + 1.15, 0);
     this.lantern.group.scale.setScalar(1.3);
     this.lantern.held = false;
     this.audio.mechanism();
     this.cam.addShake(0.6);
 
-    await this.wait(2.0);
+    // hold on the mechanism as it takes the light
+    this.cam.cinematic = true;
+    this.cam.cinematicPos.set(P.lighthouse.x + 3.2, P.lampRoom.y + 1.9, P.lighthouse.z + 3.4);
+    this.cam.cinematicLook.set(P.lighthouse.x, P.lampRoom.y + 1.2, P.lighthouse.z);
+    this.cam.camera.position.set(P.lighthouse.x + 3.2, P.lampRoom.y + 1.9, P.lighthouse.z + 3.4);
+
+    await this.wait(3.4);
     this.world.lensMat.emissiveIntensity = 5.5;
     (this.world.lampGlow.material as THREE.SpriteMaterial).opacity = 0.75;
     this.world.topLight.intensity = 7;
     this.audio.swell();
     this.musicLevel = 1; this.audio.setMusic(1, 4);
 
-    // pull the camera out over the sea and let the beam do the talking
-    this.cam.cinematic = true;
-    this.cam.cinematicPos.set(P.lighthouse.x + 26, P.lampRoom.y + 16, P.lighthouse.z + 34);
-    this.cam.cinematicLook.set(0, 6, -30);
-    (this.world.beamCone.material as THREE.MeshBasicMaterial).opacity = 0.14;
-    this.world.beamLight.intensity = 9;
+    // shot 2 — outside the lamp room, watching the beam leave the tower
+    this.cam.cinematicPos.set(P.lighthouse.x + 26, P.lampRoom.y + 5, P.lighthouse.z + 22);
+    this.cam.cinematicLook.set(P.lighthouse.x, P.lampRoom.y + 0.5, P.lighthouse.z);
+    this.fogTarget = 0.0042;
+    (this.world.beamCone.material as THREE.MeshBasicMaterial).opacity = 0.3;
+    this.world.beamLight.intensity = 5.5;
+    this.world.glowBoost = 2.0;
     this.beamMode = 'sweep';
-    this.beamAngle = -1.5;
+    this.beamAngle = Math.PI - 1.6;
     this.weather.setIntensity(0.12);
 
-    await this.wait(2.0);
+    await this.wait(5.0);
+
+    // shot 3 — high over the town, the beam raking across it
+    this.cam.cinematicPos.set(26, 42, 10);
+    this.cam.cinematicLook.set(-3, 0, -58);
+    await this.wait(3.0);
+
     // each sweep wakes a place up
     const beats: Array<[number, number]> = [[0, 0], [1, 1], [2, 2], [3, 0]];
     for (const [memIdx, zoneIdx] of beats) {
@@ -572,11 +587,11 @@ export class Game {
       await this.wait(2.6);
     }
     for (const z of this.world.zones) z.target = 1;
-    await this.wait(2.0);
+    await this.wait(2.2);
 
-    // the beam finds the player
-    this.cam.cinematicPos.set(P.lighthouse.x + 4, P.lampRoom.y + 3, P.lighthouse.z + 16);
-    this.cam.cinematicLook.set(P.lighthouse.x, P.lampRoom.y + 1.5, P.lighthouse.z);
+    // the beam comes back to the tower, and to whoever is standing in it
+    this.cam.cinematicPos.set(P.lighthouse.x + 5, P.lampRoom.y + 2.5, P.lighthouse.z + 15);
+    this.cam.cinematicLook.set(P.lighthouse.x, P.lampRoom.y + 1.3, P.lighthouse.z);
     await this.wait(3.2);
 
     this.ui.setFadeColor('#fff8ec');
@@ -594,16 +609,19 @@ export class Game {
     this.weather.setIntensity(0);
     this.sky.setMood('dawn');
     applyEnvironment(this.renderer, this.scene, 'dawn');
+    this.fogTarget = 0.0042;
     this.renderer.toneMappingExposure = 1.15;
     for (const z of this.world.zones) { z.target = 0; z.power = 0; }
     for (const l of this.world.lamps) l.power = 0;
     this.world.beamLight.intensity = 0;
+    this.world.glowBoost = 1;
     (this.world.beamCone.material as THREE.MeshBasicMaterial).opacity = 0;
     this.world.lensMat.emissiveIntensity = 0;
     (this.world.lampGlow.material as THREE.SpriteMaterial).opacity = 0;
     this.world.topLight.intensity = 0;
     this.lantern.group.visible = false;
     this.beamMode = 'off';
+    this.world.dryOut();
     this.buildMorning();
 
     this.cam.cinematic = false;
@@ -819,7 +837,8 @@ export class Game {
     this.world.update(t, dt);
     this.lantern.update(dt, t, 1);
     this.weather.update(dt, t, this.player.pos, () => this.audio.thunder());
-    this.lightPool.update(this.world.lamps, this.player.pos, t, dt);
+    const lightFocus = this.cam.cinematic ? this.cam.camera.position : this.player.pos;
+    this.lightPool.update(this.world.lamps, lightFocus, t, dt, this.world.glowBoost);
 
     this.mem1.update(dt, t);
     this.mem2.update(dt, t);
@@ -833,6 +852,9 @@ export class Game {
       const c = this.interact.update(this.player.pos, t);
       if (c) this.ui.setPrompt(c.key, c.label);
     }
+
+    const fog = this.scene.fog as THREE.FogExp2 | null;
+    if (fog && fog.isFogExp2) fog.density += (this.fogTarget - fog.density) * damp(dt, 0.5);
 
     this.updateBeam(dt, t);
     this.updateTrain(dt);
@@ -860,9 +882,9 @@ export class Game {
       pivot.rotation.y += d * damp(dt, 1.1);
       pivot.rotation.x = -0.06;
     } else {
-      this.beamAngle += dt * 0.42;
+      this.beamAngle += dt * 0.17;
       pivot.rotation.y = this.beamAngle;
-      pivot.rotation.x = -0.1 + Math.sin(t * 0.3) * 0.02;
+      pivot.rotation.x = -0.155 + Math.sin(t * 0.3) * 0.012;
     }
   }
 

@@ -127,15 +127,39 @@ export function stoneTexture(): THREE.Texture {
     const off = (r % 2) * 16;
     for (let i = -1; i < 8; i++) {
       const w = 32, bx = off + i * w, by = r * h;
-      const v = 90 + Math.random() * 60;
+      const v = 104 + Math.random() * 34;
       x.fillStyle = `rgb(${v},${v - 6},${v - 18})`;
       x.fillRect(bx + 1.5, by + 1.5, w - 3, h - 3);
     }
   }
-  x.fillStyle = 'rgba(0,0,0,0.18)';
-  for (let i = 0; i < 900; i++) x.fillRect(Math.random() * 256, Math.random() * 256, 3, 3);
+  x.fillStyle = 'rgba(0,0,0,0.1)';
+  for (let i = 0; i < 600; i++) x.fillRect(Math.random() * 256, Math.random() * 256, 3, 3);
   stoneTex = new THREE.CanvasTexture(c);
   stoneTex.wrapS = stoneTex.wrapT = THREE.RepeatWrapping;
   stoneTex.colorSpace = THREE.SRGBColorSpace;
   return stoneTex;
+}
+
+let moonTex: THREE.Texture | null = null;
+/** The moon: a soft-edged disc with a faint halo and a few seas. */
+export function moonTexture(): THREE.Texture {
+  if (moonTex) return moonTex;
+  const { c, x } = canvas(256);
+  const halo = x.createRadialGradient(128, 128, 60, 128, 128, 128);
+  halo.addColorStop(0, 'rgba(200,220,255,0.5)');
+  halo.addColorStop(1, 'rgba(200,220,255,0)');
+  x.fillStyle = halo; x.fillRect(0, 0, 256, 256);
+  const disc = x.createRadialGradient(128, 128, 40, 128, 128, 62);
+  disc.addColorStop(0, 'rgba(255,255,255,1)');
+  disc.addColorStop(0.86, 'rgba(240,246,255,1)');
+  disc.addColorStop(1, 'rgba(240,246,255,0)');
+  x.fillStyle = disc;
+  x.beginPath(); x.arc(128, 128, 62, 0, Math.PI * 2); x.fill();
+  x.fillStyle = 'rgba(186,200,222,0.5)';
+  for (const [mx, my, r] of [[112, 112, 16], [146, 136, 11], [122, 152, 8], [140, 106, 6]]) {
+    x.beginPath(); x.arc(mx, my, r, 0, Math.PI * 2); x.fill();
+  }
+  moonTex = new THREE.CanvasTexture(c);
+  moonTex.colorSpace = THREE.SRGBColorSpace;
+  return moonTex;
 }
