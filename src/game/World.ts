@@ -698,11 +698,14 @@ export class World {
     const board = new THREE.Mesh(new THREE.BoxGeometry(3.4, 1.4, 0.14), std(0x2a3037, 0.6));
     board.position.set(9.5, 3.0, -40.4); g.add(board);
     const boardFace = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 1.05), new THREE.MeshStandardMaterial({
-      color: 0x14181d, emissive: new THREE.Color(0x6fa0c8), emissiveIntensity: 0.5, roughness: 0.4,
+      color: 0x0e1319, emissive: new THREE.Color(0x2c4358), emissiveIntensity: 0.35, roughness: 0.5,
     }));
     boardFace.position.set(9.5, 3.0, -40.32); g.add(boardFace);
+    const rowMat = new THREE.MeshStandardMaterial({
+      color: 0x0d1116, emissive: new THREE.Color(0x7f8f9c), emissiveIntensity: 0.5, roughness: 0.6,
+    });
     for (let i = 0; i < 4; i++) {
-      const row = new THREE.Mesh(new THREE.PlaneGeometry(2.2 - i * 0.2, 0.09), std(0x9aa8b4, 0.7));
+      const row = new THREE.Mesh(new THREE.PlaneGeometry(2.2 - i * 0.2, 0.09), rowMat);
       row.position.set(9.1 - i * 0.06, 3.35 - i * 0.22, -40.3); g.add(row);
     }
     for (let i = 0; i < 3; i++) {
@@ -1114,8 +1117,17 @@ export class World {
     });
     const lens = new THREE.Mesh(new THREE.IcosahedronGeometry(0.34, 1), lensMat);
     lens.position.y = 1.95; g.add(lens);
-    const cage = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.9, 6, 1, true), MAT.metal(0x4a505a));
-    cage.position.y = 1.95; (cage.material as THREE.Material).side = THREE.DoubleSide; g.add(cage);
+    // open cage: bars, not a wall, so the lens can actually be seen
+    const cageMat = MAT.metal(0x4a505a);
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.9, 0.05), cageMat)
+        .translateX(Math.sin(a) * 0.4).translateY(1.95).translateZ(Math.cos(a) * 0.4));
+    }
+    for (const ry of [1.52, 2.38]) {
+      g.add(new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.03, 5, 12), cageMat)
+        .translateY(ry).rotateX(Math.PI / 2));
+    }
     g.add(new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.35, 8), MAT.metal(0x353a42)).translateY(2.55));
     // lever
     const lever = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.55, 6), MAT.metal(0x6a5c3e));
